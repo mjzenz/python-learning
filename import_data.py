@@ -1,12 +1,14 @@
 import pandas as pd
 import re
 import os
+from fredapi import Fred
 
 def read_UFAS_file_names(folder):
     file_names = os.listdir(folder)
     date_pattern = re.compile(r'\d{4}-\d{2}')
     filtered_file_names = [file for file in file_names if date_pattern.search(file)]
-    return filter_file_names
+    paths = [folder + '/' + item for item in filtered_file_names]
+    return paths
 
 def clean_UFAS_Data(filenames, fred_api_key):
     # Initialize Fred API for CPI data
