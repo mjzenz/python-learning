@@ -21,9 +21,17 @@ def clean_ufas_data(filenames, fred_api_key):
     for file in filenames:
         # Read Excel and clean column names
         df = pd.read_excel(file)
+        #Replace spaces with _ in column names
         df.columns = df.columns.str.lower().str.replace(' ', '_')
-
-        # Extract date from filename
+        #Drop fte adjusted salary if present, because not in all files
+        df.drop(['annual_fte_adjusted_salary','pay_basis'], axis = 1,
+                inplace=True, errors = 'ignore')
+        #rename column if present
+        df = df.rename(columns = {'annual_full_salary':'current_annual_contracted_salary',
+                                  'full-time_equivalent': 'full_time_equivalent',
+                                  'job_code': 'jobcode',
+                                  'appointment_type_and_length': 'appt_type_length'})
+        # Extract date from filename and put into Date column
         date_match = re.search(r'\d+-\d+', file)
         df['Date'] = date_match.group(0) if date_match else None
 
@@ -31,6 +39,7 @@ def clean_ufas_data(filenames, fred_api_key):
 
     # Combine all salary data
     salaries = pd.concat(all_salaries, ignore_index=True)
+
 
     # Create unique IDs for employees
     person_ids = salaries[['last_name', 'first_name']].drop_duplicates().reset_index(drop=True)
@@ -40,7 +49,7 @@ def clean_ufas_data(filenames, fred_api_key):
     salary_data = salaries.merge(person_ids, on=['last_name', 'first_name'], how='left')
 
     # Adjust data and calculate additional fields
-    salary_data['job_code'] = salary_data['job_code'].fillna(salary_data['jobcode'])
+    #salary_data['job_code'] = salary_data['job_code'].fillna(salary_data['jobcode'])
     salary_data['employee_category'] = salary_data['employee_category'].replace({
         "AS": "Academic Staff",
         "FA": "Faculty",
@@ -52,20 +61,21 @@ def clean_ufas_data(filenames, fred_api_key):
         "OT4": "Other", "OT5": "Other", "OT6": "Other"
     })
 
-    salary_data['annual_fte_adjusted_salary'] = salary_data.apply(
-        lambda row: row['current_annual_contracted_salary'] * row['full_time_equivalent']
-        if pd.isna(row['annual_fte_adjusted_salary']) else row['annual_fte_adjusted_salary'], axis=1
-    )
+    #Calculate FTE adjusted salary from full salary and FTE
+    salary_data['fte_adjusted_salary'] = salary_data['current_annual_contracted_salary'] * salary_data['full_time_equivalent']
 
     salary_data['FullTime'] = salary_data['full_time_equivalent'] == 1
-    salary_data['JobGroup'] = salary_data['job_code'].str[:2]
-    salary_data['JobNumber'] = salary_data['job_code'].str[2:]
+    salary_data['JobGroup'] = salary_data['jobcode'].str[:2]
+    salary_data['JobNumber'] = salary_data['jobcode'].str[2:]
+
+    #Convert Date to Date object
+    salary_data['Date'] = pd.to_datetime(salary_data['Date'])
 
     # Inflation adjustment
     salary_data = salary_data.merge(cpi_data, on='Date', how='left')
     cpi_2021 = cpi_data.loc[cpi_data['Date'] == '2021-11-01', 'CPI'].iloc[0]
     salary_data['2021_Index'] = cpi_2021 / salary_data['CPI']
-    salary_data['FTE_Adjusted_Salary_2021_Dollars'] = salary_data['annual_fte_adjusted_salary'] * salary_data['2021_Index']
+    salary_data['FTE_Adjusted_Salary_2021_Dollars'] = salary_data['fte_adjusted_salary'] * salary_data['2021_Index']
 
     # Return the cleaned DataFrame
     return salary_data
