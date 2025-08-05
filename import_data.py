@@ -43,7 +43,7 @@ def clean_ufas_data(filenames, fred_api_key):
 
     # Create unique IDs for employees
     person_ids = salaries[['last_name', 'first_name']].drop_duplicates().reset_index(drop=True)
-    person_ids['ID'] = person_ids.index + 1
+    person_ids['id'] = person_ids.index + 1
 
     # Merge the data with unique IDs
     salary_data = salaries.merge(person_ids, on=['last_name', 'first_name'], how='left')
@@ -61,9 +61,10 @@ def clean_ufas_data(filenames, fred_api_key):
         "OT4": "Other", "OT5": "Other", "OT6": "Other"
     })
 
+    salary_data['division_department']  = salary_data['division'] + ' - ' + salary_data['department']
     #Calculate FTE adjusted salary from full salary and FTE
     salary_data['fte_adjusted_salary'] = salary_data['current_annual_contracted_salary'] * salary_data['full_time_equivalent']
-
+    salary_data['id_jobcode'] = salary_data['id'].astype(str) + '_' + salary_data['jobcode']
     salary_data['FullTime'] = salary_data['full_time_equivalent'] == 1
     salary_data['JobGroup'] = salary_data['jobcode'].str[:2]
     salary_data['JobNumber'] = salary_data['jobcode'].str[2:]
