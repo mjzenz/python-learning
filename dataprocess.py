@@ -74,10 +74,6 @@ department_jobgroup_prop['fte_proportion'] = (
     department_jobgroup_prop['total_fte']
 )
 
-#Find percentage of department that is fac/teaching/research
-
-
-
 
 admin_ss_division_list = ['Div for Teaching and Learning',
        'Graduate School', 'General Educational Admin',
